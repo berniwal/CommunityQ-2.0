@@ -1,0 +1,7 @@
+__pycache__/
+.idea/
+*.csv
+*.docx
+visualizations/ground_truth.png
+visualizations/prediction.png
+final_model.pt
