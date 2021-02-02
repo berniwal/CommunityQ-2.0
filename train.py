@@ -130,7 +130,6 @@ class QuestionAnswerer(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        # logits = self.BERT_backbone(x_text)
         loss = self.cross_entropy_loss(logits, y[:, -1])
         self.log('train_loss', loss)
         return loss
