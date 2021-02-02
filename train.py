@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, random_split
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.loggers import WandbLogger
 
 from transformers import BertTokenizer, BertModel
 from transformers import DistilBertTokenizer, DistilBertModel, DistilBertForSequenceClassification
@@ -145,6 +146,7 @@ class QuestionAnswerer(pl.LightningModule):
         x, y = batch
         logits = self(x)
         loss = self.cross_entropy_loss(logits, y[:, -1])
+        self.log('test_loss', loss)
         return loss
 
     def configure_optimizers(self):
@@ -209,6 +211,9 @@ def main(args):
 
     print(net)
 
+    wandb_logger = WandbLogger(name='Test-Run', project='Digitec')
+    wandb_logger.watch(net)
+
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         mode='min',
@@ -225,7 +230,9 @@ def main(args):
         mode='min'
     )
 
-    trainer = pl.Trainer(gpus=1, callbacks=[checkpoint_callback, early_stop_callback])
+    trainer = pl.Trainer(gpus=1,
+                         callbacks=[checkpoint_callback, early_stop_callback],
+                         logger=[wandb_logger])
     trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
 
     trainer.test(test_dataloaders=test_dataloader)
