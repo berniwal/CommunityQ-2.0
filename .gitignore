@@ -4,4 +4,6 @@ __pycache__/
 *.docx
 visualizations/ground_truth.png
 visualizations/prediction.png
+checkpoints/
+lightning_logs/
 final_model.pt
