@@ -40,7 +40,7 @@ class QuestionDataset(torch.utils.data.Dataset):
             for categorical_feature in input_features_categorical:
                 if categorical_feature == 'BrandId':
                     mask = self.x_num_raw['VisitsLastYear'] > 20000
-                    self.dataset[categorical_feature][~mask] = -1
+                    self.dataset[categorical_feature] = self.dataset[categorical_feature].where(mask, other=-1)
                 current_dummy = pd.get_dummies(self.dataset[categorical_feature]).to_numpy()
                 self.x_cat = np.concatenate((self.x_cat, current_dummy), axis=1)
 
