@@ -20,7 +20,10 @@ from transformers import BertTokenizer, BertModel
 from transformers import DistilBertTokenizer, DistilBertModel, DistilBertForSequenceClassification
 
 
-def visualize_histograms(dataset, output_name):
+def visualize_histograms(dataset, vis_folder, output_name):
+    if not os.path.exists(vis_folder):
+        os.mkdir(vis_folder)
+
     if 'QuestionText' in dataset:
         dataset = dataset.drop('QuestionText', inplace=False, axis=1)
     height = int(np.sqrt(dataset.shape[1]))
@@ -33,27 +36,28 @@ def visualize_histograms(dataset, output_name):
         current_axis.hist(current_data)
         current_axis.set_title(feature_name, size=8)
         # current_axis.set_yscale('log')
-    plt.savefig('./visualizations/{}'.format(output_name))
+    plt.savefig(os.path.join(vis_folder, output_name))
 
 
 class QuestionDataset(torch.utils.data.Dataset):
     def __init__(self, dataset_directory, output_features, input_features_numerical=None,
                  input_features_categorical=None,
-                 input_features_text=None):
+                 input_features_text=None,
+                 visualization_folder='./visualizations'):
         self.dataset = pd.read_csv(dataset_directory)
         self.y_raw = self.dataset[output_features]
 
-        visualize_histograms(self.dataset, output_name='dataset.png')
+        visualize_histograms(self.dataset, visualization_folder, output_name='dataset.png')
 
         self.x_num = None
         if input_features_numerical is not None:
             self.x_num_raw = self.dataset[input_features_numerical]
             self.mean_x = self.x_num_raw.mean()
             self.std_x = self.x_num_raw.std()
-            visualize_histograms(self.x_num_raw, output_name='unnormalized.png')
+            visualize_histograms(self.x_num_raw, visualization_folder, output_name='unnormalized.png')
             self.x_num = (self.x_num_raw - self.mean_x) / self.std_x
             # self.x_num = self.x_num_raw / self.x_num_raw.max()
-            visualize_histograms(self.x_num, output_name='normalized.png')
+            visualize_histograms(self.x_num, visualization_folder, output_name='normalized.png')
             self.x_num = self.x_num.to_numpy()
 
         self.x_cat = None
@@ -217,6 +221,7 @@ def main(args):
                               input_features_categorical=input_features_categorical,
                               input_features_text=input_features_text,
                               output_features=output_features,
+                              visualization_folder=args['vis_save_path']
                               )
 
     dataset_samples = dataset.__len__()
