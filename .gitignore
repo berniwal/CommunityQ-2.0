@@ -2,8 +2,7 @@ __pycache__/
 .idea/
 *.csv
 *.docx
-visualizations/ground_truth.png
-visualizations/prediction.png
+visualizations/
 checkpoints/
 lightning_logs/
 wandb/

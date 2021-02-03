@@ -20,6 +20,22 @@ from transformers import BertTokenizer, BertModel
 from transformers import DistilBertTokenizer, DistilBertModel, DistilBertForSequenceClassification
 
 
+def visualize_histograms(dataset, output_name):
+    if 'QuestionText' in dataset:
+        dataset = dataset.drop('QuestionText', inplace=False, axis=1)
+    height = int(np.sqrt(dataset.shape[1]))
+    width = (dataset.shape[1] // height) + 1
+    fig, axs = plt.subplots(height, width, figsize=(20, 8.27), tight_layout=True)
+    for feature_index in range(dataset.shape[1]):
+        current_axis = axs[feature_index // width, feature_index % width]
+        current_data = dataset.iloc[:, feature_index].sample(1000)
+        feature_name = current_data.name
+        current_axis.hist(current_data)
+        current_axis.set_title(feature_name, size=8)
+        # current_axis.set_yscale('log')
+    plt.savefig('./visualizations/{}'.format(output_name))
+
+
 class QuestionDataset(torch.utils.data.Dataset):
     def __init__(self, dataset_directory, output_features, input_features_numerical=None,
                  input_features_categorical=None,
@@ -27,12 +43,17 @@ class QuestionDataset(torch.utils.data.Dataset):
         self.dataset = pd.read_csv(dataset_directory)
         self.y_raw = self.dataset[output_features]
 
+        visualize_histograms(self.dataset, output_name='dataset.png')
+
         self.x_num = None
         if input_features_numerical is not None:
             self.x_num_raw = self.dataset[input_features_numerical]
             self.mean_x = self.x_num_raw.mean()
             self.std_x = self.x_num_raw.std()
+            visualize_histograms(self.x_num_raw, output_name='unnormalized.png')
             self.x_num = (self.x_num_raw - self.mean_x) / self.std_x
+            # self.x_num = self.x_num_raw / self.x_num_raw.max()
+            visualize_histograms(self.x_num, output_name='normalized.png')
             self.x_num = self.x_num.to_numpy()
 
         self.x_cat = None
@@ -112,20 +133,28 @@ class SimpleQuestionAnswerer(nn.Module):
 class QuestionAnswerer(pl.LightningModule):
     def __init__(self, input_dimension: int = 2, hidden_dimension: int = 1024, num_layers: int = 4,
                  num_classes: int = 2, bias: bool = True, mean: pd.core.series.Series = None,
-                 std: pd.core.series.Series = None):
+                 std: pd.core.series.Series = None, nlp_backbone: bool = False):
         super().__init__()
         self.mean = mean
         self.std = std
-        self.BERT_backbone = DistilBertModel.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
-        self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes, bias)
+        self.nlp_backbone = nlp_backbone
+        if self.nlp_backbone:
+            self.BERT_backbone = DistilBertModel.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
+            self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes,
+                                                   bias)
+        else:
+            self.backbone = SimpleQuestionAnswerer(input_dimension, hidden_dimension, num_layers, num_classes, bias)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
 
     def forward(self, x):
         x_num, x_text = x
-        text_hidden_state = self.BERT_backbone(x_text).last_hidden_state
-        text_hidden_state = text_hidden_state[:, 0]
-        x_final = torch.cat((x_num, text_hidden_state), 1)
-        logits = self.backbone(x_final)
+        if self.nlp_backbone:
+            text_hidden_state = self.BERT_backbone(x_text).last_hidden_state
+            text_hidden_state = text_hidden_state[:, 0]
+            x_final = torch.cat((x_num, text_hidden_state), 1)
+            logits = self.backbone(x_final)
+        else:
+            logits = self.backbone(x_num)
         return logits
 
     def training_step(self, batch, batch_idx):
@@ -150,7 +179,7 @@ class QuestionAnswerer(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-05)
+        optimizer = optim.Adam(self.parameters(), lr=1e-05, weight_decay=1e-04)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                                factor=0.1,
                                                                patience=5,
@@ -232,7 +261,9 @@ def main(args):
 
     trainer = pl.Trainer(gpus=1,
                          callbacks=[checkpoint_callback, early_stop_callback],
-                         logger=[wandb_logger])
+                         logger=[wandb_logger],
+                         # overfit_batches=1
+                         )
     trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
 
     trainer.test(test_dataloaders=test_dataloader)

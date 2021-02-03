@@ -1,5 +1,6 @@
 # Visualization
-<img src="./visualizations/ground_truth_example.png" alt="drawing" width="45%"/> <img src="./visualizations/prediction_example.png" alt="drawing" width="45%"/>
+<img src="./examples/ground_truth_example.png" alt="ground-truth" width="45%"/> <img src="./examples/prediction_example.png" alt="prediction" width="45%"/>
+<img src="./examples/dataset_example.png" alt="dataset" width="90%"/>
 # How to Run (This is the Experimental Repository, for a guaranteed working version please go to [VERSION 1.0](https://github.com/berniwal/CommunityQ).
 ## 0. Virtual Environment
 [Create a virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) using Python Version 3.8 and run
