@@ -322,7 +322,8 @@ def main(args):
     train_samples = int(0.8 * dataset_samples)
     val_samples = int(0.5 * (dataset_samples - train_samples))
     test_samples = dataset_samples - train_samples - val_samples
-    train_dataset, val_dataset, test_dataset = random_split(dataset, [train_samples, val_samples, test_samples])
+    train_dataset, val_dataset, test_dataset = random_split(dataset, [train_samples, val_samples, test_samples],
+                                                            generator=torch.Generator().manual_seed(42))
 
     train_dataloader = DataLoader(train_dataset, batch_size=args['batch_size'], shuffle=True, num_workers=10)
     val_dataloader = DataLoader(val_dataset, batch_size=args['batch_size'], num_workers=10)
