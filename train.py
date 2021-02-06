@@ -26,7 +26,7 @@ def generate_attention_plot(attentions, decoded_tokens, output_path, vmax=1.0):
     plt.rcParams.update(plt.rcParamsDefault)
     plt.rcParams.update({'font.size': 12})
     f, axes = plt.subplots(attentions.shape[0], attentions.shape[1], figsize=a4_dims)
-    f.suptitle(decoded_tokens, fontsize=10)
+    f.suptitle(decoded_tokens, fontsize=8)
 
     if attentions.shape[0] == 1 and len(axes.shape) == 1:
         axes = np.expand_dims(axes, 0)
