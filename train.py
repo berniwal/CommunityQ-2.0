@@ -163,6 +163,7 @@ class QuestionAnswerer(pl.LightningModule):
         else:
             self.backbone = SimpleQuestionAnswerer(input_dimension, hidden_dimension, num_layers, num_classes, bias)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.y_pred = []
 
     def forward(self, x):
         x_num, x_text = x
@@ -193,6 +194,8 @@ class QuestionAnswerer(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
+        predictions = logits.argmax(dim=1).numpy()
+        y_pred.extend(predictions)
         loss = self.cross_entropy_loss(logits, y[:, -1])
         self.log('test_loss', loss)
         return loss
@@ -279,26 +282,30 @@ def main(args):
         mode='min'
     )
 
-    trainer = pl.Trainer(gpus=1,
-                         callbacks=[checkpoint_callback, early_stop_callback],
-                         # logger=[wandb_logger],
-                         # overfit_batches=5
-                         )
-    trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
-
-    trainer.test(test_dataloaders=test_dataloader)
-
+    if not config['only_test']:
+        trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
+        trainer.test(test_dataloaders=test_dataloader)
+    else:
+        if config['model_path'] is None:
+            state_dict = torch.load(config['model_path'])['state_dict']
+            net.load_state_dict(state_dict)
+            import pdb
+            pdb.set_trace()
+            trainer.test(net, test_dataloader=test_dataloader)
+        else:
+            print('Please specify model_path variable, where to load the Model.')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Input Arguments')
     parser.add_argument('--experiment_id', default='default', type=str, help='Experiment Id to choose')
     parser.add_argument('--dataset', default='./data/juniorMLE_dataset.csv', type=str, help='Input Path to Dataset')
     parser.add_argument('--bias', default=True, type=bool, help='Bias')
+    parser.add_argument('--only_test', default=False, type=bool, help='If only testing should be performed')
     parser.add_argument('--epochs', default=10, type=int, help='Epochs to train')
     parser.add_argument('--batch_size', default=32, type=int, help='Batch Size to use')
     parser.add_argument('--num_layers', default=2, type=int, help='Number of Layers of MLP')
     parser.add_argument('--hidden_dimension', default=2048, type=int, help='Hidden Dimension')
-    parser.add_argument('--model_save_path', default='./', type=str, help='Path to save model')
+    parser.add_argument('--model_path', default=None, type=str, help='Path to load model for testing')
     parser.add_argument('--vis_save_path', default='./visualizations', type=str, help='Path to save visualizations')
     args = parser.parse_args()
     args = vars(args)
