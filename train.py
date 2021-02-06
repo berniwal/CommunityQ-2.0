@@ -24,7 +24,7 @@ def generate_attention_plot(attentions, output_path, vmax=1.0):
     a4_dims = (20, 8.27)
     plt.rcParams.update(plt.rcParamsDefault)
     plt.rcParams.update({'font.size': 12})
-    f, axes = plt.subplots(attentions.shape[0], attentions.shape[1], figsize=a4_dims)
+    f, axes = plt.subplots(attentions.shape[0], attentions.shape[1], figsize=a4_dims, tight_layout=True)
 
     if attentions.shape[0] == 1 and len(axes.shape) == 1:
         axes = np.expand_dims(axes, 0)
