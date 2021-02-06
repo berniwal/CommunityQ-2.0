@@ -138,9 +138,6 @@ class QuestionDataset(torch.utils.data.Dataset):
         self.x = np.concatenate((self.x_num, self.x_cat), axis=1)
         self.y = self.y_raw.to_numpy()
 
-        import pdb
-        pdb.set_trace()
-
     def __len__(self):
         return int(self.x.shape[0])
 
@@ -232,14 +229,14 @@ class QuestionAnswerer(pl.LightningModule):
             logits = self.backbone(x_num)
         return logits, attentions
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_idx):
         x, y = batch
         logits, _ = self(x)
         loss = self.cross_entropy_loss(logits, y[:, -1])
         self.log('train_loss', loss)
         return loss
 
-    def validation_step(self, batch):
+    def validation_step(self, batch, batch_idx):
         x, y = batch
         logits, _ = self(x)
         loss = self.cross_entropy_loss(logits, y[:, -1])
