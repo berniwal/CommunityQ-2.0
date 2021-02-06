@@ -24,7 +24,7 @@ def generate_attention_plot(attentions, output_path, vmax=1.0):
     a4_dims = (20, 8.27)
     plt.rcParams.update(plt.rcParamsDefault)
     plt.rcParams.update({'font.size': 12})
-    f, axes = plt.subplots(attentions.shape[0], attentions.shape[1], figsize=a4_dims, tight_layout=True)
+    f, axes = plt.subplots(attentions.shape[0], attentions.shape[1], figsize=a4_dims)
 
     if attentions.shape[0] == 1 and len(axes.shape) == 1:
         axes = np.expand_dims(axes, 0)
@@ -218,6 +218,7 @@ class QuestionAnswerer(pl.LightningModule):
             # self.BERT_backbone = DistilBertModel.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
             self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes,
                                                    bias)
+            self.tokenizer = BertTokenizer.from_pretrained('bert-base-german-cased', use_fast=True)
         else:
             self.backbone = SimpleQuestionAnswerer(input_dimension, hidden_dimension, num_layers, num_classes, bias)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
@@ -260,6 +261,8 @@ class QuestionAnswerer(pl.LightningModule):
             attention_data = np.zeros((0, 12, 512, 512))
             for attention in attentions:
                 attention_data = np.concatenate([attention_data, attention[0].unsqueeze(dim=0).cpu().numpy()])
+            import pdb
+            pdb.set_trace()
             generate_attention_plot(attention_data, './visualizations/attention.png', vmax=0.2)
         predictions = logits.argmax(dim=1).cpu().numpy()
         self.x_in = np.concatenate([self.x_in, x[0][:, 1:3].cpu().numpy()], axis=0)
@@ -277,6 +280,11 @@ class QuestionAnswerer(pl.LightningModule):
                                                                min_lr=1e-07,
                                                                verbose=1)
         return {'optimizer': optimizer, 'lr_scheduler': scheduler, 'monitor': 'val_loss'}
+
+
+    def decode_tokens(self, token_list):
+        return [list(self.tokenizer.vocab)[int(x)] for x in token_list]
+
 
 
 def main(args):
