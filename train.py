@@ -310,7 +310,7 @@ def main(args):
         net.load_state_dict(state_dict)
         net.y_pred = []
         net.y_gt = []
-        net.x_in = []
+        net.x_in = np.zeros((0, 2))
 
     if not args['only_test']:
         trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
