@@ -77,7 +77,9 @@ class QuestionDataset(torch.utils.data.Dataset):
                 if '\n' in test:
                     test = test.replace('\n', '')
                 file.write(test + '\n')'''
-        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-german-cased', use_fast=True)
+
+        # self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-german-cased', use_fast=True)
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-german-cased', use_fast=True)
         self.MAX_LEN = 512
 
         # test_text = self.x_text[1]
@@ -153,9 +155,10 @@ class QuestionAnswerer(pl.LightningModule):
         self.std = std
         self.nlp_backbone = nlp_backbone
         if self.nlp_backbone:
-            self.BERT_backbone = DistilBertForSequenceClassification.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
+            # self.BERT_backbone = DistilBertForSequenceClassification.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
+            self.BERT_backbone = BertModel.from_pretrained('bert-base-german-cased', num_labels=num_classes)
             # self.BERT_backbone = DistilBertModel.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
-            # self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes, bias)
+            self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes, bias)
         else:
             self.backbone = SimpleQuestionAnswerer(input_dimension, hidden_dimension, num_layers, num_classes, bias)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
@@ -163,11 +166,11 @@ class QuestionAnswerer(pl.LightningModule):
     def forward(self, x):
         x_num, x_text = x
         if self.nlp_backbone:
-            logits = self.BERT_backbone(x_text).logits
-            # text_hidden_state = self.BERT_backbone(x_text).last_hidden_state
-            # text_hidden_state = text_hidden_state[:, 0]
-            # x_final = torch.cat((x_num, text_hidden_state), 1)
-            # logits = self.backbone(x_final)
+            # logits = self.BERT_backbone(x_text).logits
+            text_hidden_state = self.BERT_backbone(x_text).last_hidden_state
+            text_hidden_state = text_hidden_state[:, 0]
+            x_final = torch.cat((x_num, text_hidden_state), 1)
+            logits = self.backbone(x_final)
         else:
             logits = self.backbone(x_num)
         return logits
@@ -291,7 +294,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', default='./data/juniorMLE_dataset.csv', type=str, help='Input Path to Dataset')
     parser.add_argument('--bias', default=True, type=bool, help='Bias')
     parser.add_argument('--epochs', default=10, type=int, help='Epochs to train')
-    parser.add_argument('--batch_size', default=4, type=int, help='Batch Size to use')
+    parser.add_argument('--batch_size', default=2, type=int, help='Batch Size to use')
     parser.add_argument('--num_layers', default=2, type=int, help='Number of Layers of MLP')
     parser.add_argument('--hidden_dimension', default=2048, type=int, help='Hidden Dimension')
     parser.add_argument('--model_save_path', default='./', type=str, help='Path to save model')
