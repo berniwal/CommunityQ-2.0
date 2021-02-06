@@ -164,6 +164,7 @@ class QuestionAnswerer(pl.LightningModule):
             self.backbone = SimpleQuestionAnswerer(input_dimension, hidden_dimension, num_layers, num_classes, bias)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.y_pred = []
+        self.y_gt = []
 
     def forward(self, x):
         x_num, x_text = x
@@ -196,6 +197,9 @@ class QuestionAnswerer(pl.LightningModule):
         logits = self(x)
         predictions = logits.argmax(dim=1).numpy()
         y_pred.extend(predictions)
+        y_gt.extend(y[:, -1])
+        import pdb
+        pdb.set_trace()
         loss = self.cross_entropy_loss(logits, y[:, -1])
         self.log('test_loss', loss)
         return loss
@@ -282,11 +286,17 @@ def main(args):
         mode='min'
     )
 
-    if not config['only_test']:
+    trainer = pl.Trainer(gpus=1,
+                         callbacks=[checkpoint_callback, early_stop_callback],
+                         # logger=[wandb_logger],
+                         # overfit_batches=5
+                         )
+
+    if not args['only_test']:
         trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
         trainer.test(test_dataloaders=test_dataloader)
     else:
-        if config['model_path'] is None:
+        if args['model_path'] is None:
             state_dict = torch.load(config['model_path'])['state_dict']
             net.load_state_dict(state_dict)
             import pdb
