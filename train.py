@@ -133,10 +133,12 @@ class QuestionDataset(torch.utils.data.Dataset):
 
         '''output_file = './data/questions.txt'
         with open(output_file, 'a') as file:
-            for test in tqdm(self.x_text):
+            for idx, test in tqdm(enumerate(self.x_text)):
                 if '\n' in test:
                     test = test.replace('\n', '')
-                file.write(test + '\n')'''
+                file.write(
+                    '{},'.format(idx) + test + ',{}'.format(self.y_raw.iloc[idx]['IsQuestionForCommunity']) + '\n'
+                )'''
 
         # self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-german-cased', use_fast=True)
         self.tokenizer = BertTokenizer.from_pretrained('bert-base-german-cased', use_fast=True)
