@@ -257,10 +257,10 @@ class QuestionAnswerer(pl.LightningModule):
         x, y = batch
         logits, attentions = self(x)
         if batch_idx == 0:
-            attention_data = np.zeros(0, 12, 512, 512)
+            attention_data = np.zeros((0, 12, 512, 512))
             for attention in attentions:
-                attention_data = np.concatenate([attention_data, attention[0].cpu().numpy()])
-            generate_attention_plot(attention_data, './visualizations/attention.png')
+                attention_data = np.concatenate([attention_data, attention[0].unsqueeze(dim=0).cpu().numpy()])
+            generate_attention_plot(attention_data, './visualizations/attention.png', vmax=0.2)
         predictions = logits.argmax(dim=1).cpu().numpy()
         self.x_in = np.concatenate([self.x_in, x[0][:, 1:3].cpu().numpy()], axis=0)
         self.y_pred.extend(predictions)
