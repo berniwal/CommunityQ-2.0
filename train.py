@@ -296,7 +296,7 @@ def main(args):
         trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
         trainer.test(test_dataloaders=test_dataloader)
     else:
-        if args['model_path'] is None:
+        if args['model_path'] is not None:
             state_dict = torch.load(config['model_path'])['state_dict']
             net.load_state_dict(state_dict)
             import pdb
