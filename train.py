@@ -256,8 +256,11 @@ class QuestionAnswerer(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch
         logits, attentions = self(x)
-        import pdb
-        pdb.set_trace()
+        if batch_idx == 0:
+            attention_data = np.zeros(0, 12, 512, 512)
+            for attention in attentions:
+                attention_data = np.concatenate([attention_data, attention[0].cpu().numpy()])
+            generate_attention_plot(attention_data, './visualizations/attention.png')
         predictions = logits.argmax(dim=1).cpu().numpy()
         self.x_in = np.concatenate([self.x_in, x[0][:, 1:3].cpu().numpy()], axis=0)
         self.y_pred.extend(predictions)
