@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, random_split
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-from pytorch_lightning.loggers import WandbLogger
+# from pytorch_lightning.loggers import WandbLogger
 
 from transformers import BertTokenizer, BertModel
 from transformers import DistilBertTokenizer, DistilBertModel, DistilBertForSequenceClassification
@@ -71,8 +71,18 @@ class QuestionDataset(torch.utils.data.Dataset):
                 self.x_cat = np.concatenate((self.x_cat, current_dummy), axis=1)
 
         self.x_text = self.dataset[input_features_text].to_numpy().squeeze()
-        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-german-cased')
+        '''output_file = './data/questions.txt'
+        with open(output_file, 'a') as file:
+            for test in tqdm(self.x_text):
+                if '\n' in test:
+                    test = test.replace('\n', '')
+                file.write(test + '\n')'''
+        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-german-cased', use_fast=True)
         self.MAX_LEN = 512
+
+        # test_text = self.x_text[1]
+        # test_tokens = self.tokenizer.encode_plus(test_text, add_special_tokens=True, max_length=self.MAX_LEN, truncation=True)
+        # test_back_text = [list(self.tokenizer.vocab)[int(x)] for x in test_tokens['input_ids']]
 
         self.x = np.concatenate((self.x_num, self.x_cat), axis=1)
         self.y = self.y_raw.to_numpy()
@@ -137,15 +147,15 @@ class SimpleQuestionAnswerer(nn.Module):
 class QuestionAnswerer(pl.LightningModule):
     def __init__(self, input_dimension: int = 2, hidden_dimension: int = 1024, num_layers: int = 4,
                  num_classes: int = 2, bias: bool = True, mean: pd.core.series.Series = None,
-                 std: pd.core.series.Series = None, nlp_backbone: bool = False):
+                 std: pd.core.series.Series = None, nlp_backbone: bool = True):
         super().__init__()
         self.mean = mean
         self.std = std
         self.nlp_backbone = nlp_backbone
         if self.nlp_backbone:
-            self.BERT_backbone = DistilBertModel.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
-            self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes,
-                                                   bias)
+            self.BERT_backbone = DistilBertForSequenceClassification.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
+            # self.BERT_backbone = DistilBertModel.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
+            # self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes, bias)
         else:
             self.backbone = SimpleQuestionAnswerer(input_dimension, hidden_dimension, num_layers, num_classes, bias)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
@@ -153,10 +163,11 @@ class QuestionAnswerer(pl.LightningModule):
     def forward(self, x):
         x_num, x_text = x
         if self.nlp_backbone:
-            text_hidden_state = self.BERT_backbone(x_text).last_hidden_state
-            text_hidden_state = text_hidden_state[:, 0]
-            x_final = torch.cat((x_num, text_hidden_state), 1)
-            logits = self.backbone(x_final)
+            logits = self.BERT_backbone(x_text).logits
+            # text_hidden_state = self.BERT_backbone(x_text).last_hidden_state
+            # text_hidden_state = text_hidden_state[:, 0]
+            # x_final = torch.cat((x_num, text_hidden_state), 1)
+            # logits = self.backbone(x_final)
         else:
             logits = self.backbone(x_num)
         return logits
@@ -183,7 +194,7 @@ class QuestionAnswerer(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-05, weight_decay=1e-04)
+        optimizer = optim.Adam(self.parameters(), lr=5e-05)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                                factor=0.1,
                                                                patience=5,
@@ -230,9 +241,9 @@ def main(args):
     test_samples = dataset_samples - train_samples - val_samples
     train_dataset, val_dataset, test_dataset = random_split(dataset, [train_samples, val_samples, test_samples])
 
-    train_dataloader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=10)
-    val_dataloader = DataLoader(val_dataset, batch_size=2, num_workers=10)
-    test_dataloader = DataLoader(test_dataset, batch_size=2, num_workers=10)
+    train_dataloader = DataLoader(train_dataset, batch_size=args['batch_size'], shuffle=True, num_workers=10)
+    val_dataloader = DataLoader(val_dataset, batch_size=args['batch_size'], num_workers=10)
+    test_dataloader = DataLoader(test_dataset, batch_size=args['batch_size'], num_workers=10)
 
     net = QuestionAnswerer(input_dimension=dataset.x.shape[1],
                            hidden_dimension=args['hidden_dimension'],
@@ -245,15 +256,15 @@ def main(args):
 
     print(net)
 
-    wandb_logger = WandbLogger(name='Test-Run', project='Digitec')
-    wandb_logger.watch(net)
+    # wandb_logger = WandbLogger(name='Test-Run', project='Digitec')
+    # wandb_logger.watch(net)
 
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         mode='min',
         dirpath='./checkpoints/{}'.format(args['experiment_id']),
         save_last=True,
-        save_top_k=-1,
+        save_top_k=5,
         save_weights_only=False,
         filename='model-{epoch:03d}-{val_loss:.4f}'
     )
@@ -266,8 +277,8 @@ def main(args):
 
     trainer = pl.Trainer(gpus=1,
                          callbacks=[checkpoint_callback, early_stop_callback],
-                         logger=[wandb_logger],
-                         # overfit_batches=1
+                         # logger=[wandb_logger],
+                         overfit_batches=5
                          )
     trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
 
@@ -280,6 +291,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', default='./data/juniorMLE_dataset.csv', type=str, help='Input Path to Dataset')
     parser.add_argument('--bias', default=True, type=bool, help='Bias')
     parser.add_argument('--epochs', default=10, type=int, help='Epochs to train')
+    parser.add_argument('--batch_size', default=4, type=int, help='Batch Size to use')
     parser.add_argument('--num_layers', default=2, type=int, help='Number of Layers of MLP')
     parser.add_argument('--hidden_dimension', default=2048, type=int, help='Hidden Dimension')
     parser.add_argument('--model_save_path', default='./', type=str, help='Path to save model')
