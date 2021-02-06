@@ -71,6 +71,7 @@ class QuestionDataset(torch.utils.data.Dataset):
                 self.x_cat = np.concatenate((self.x_cat, current_dummy), axis=1)
 
         self.x_text = self.dataset[input_features_text].to_numpy().squeeze()
+
         '''output_file = './data/questions.txt'
         with open(output_file, 'a') as file:
             for test in tqdm(self.x_text):
@@ -281,7 +282,7 @@ def main(args):
     trainer = pl.Trainer(gpus=1,
                          callbacks=[checkpoint_callback, early_stop_callback],
                          # logger=[wandb_logger],
-                         overfit_batches=5
+                         # overfit_batches=5
                          )
     trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
 
@@ -294,7 +295,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', default='./data/juniorMLE_dataset.csv', type=str, help='Input Path to Dataset')
     parser.add_argument('--bias', default=True, type=bool, help='Bias')
     parser.add_argument('--epochs', default=10, type=int, help='Epochs to train')
-    parser.add_argument('--batch_size', default=2, type=int, help='Batch Size to use')
+    parser.add_argument('--batch_size', default=32, type=int, help='Batch Size to use')
     parser.add_argument('--num_layers', default=2, type=int, help='Number of Layers of MLP')
     parser.add_argument('--hidden_dimension', default=2048, type=int, help='Hidden Dimension')
     parser.add_argument('--model_save_path', default='./', type=str, help='Path to save model')
