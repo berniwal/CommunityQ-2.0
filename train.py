@@ -315,10 +315,11 @@ def main(args):
             net.y_pred = []
             net.y_gt = []
             trainer.test(net, test_dataloaders=test_dataloader)
+            input_features = ['VisitsLastYear', 'QuestionTextLength']
             output_path = os.path.join(args['vis_save_path'], 'ground-truth.png')
-            create_scatter_plot(net.x_in, net.y_gt, 'ground-truth', output_path)
+            create_scatter_plot(net.x_in, net.y_gt, input_features, 'ground-truth', output_path)
             output_path = os.path.join(args['vis_save_path'], 'prediction.png')
-            create_scatter_plot(net.x_in, net.y_pred, 'prediction', output_path)
+            create_scatter_plot(net.x_in, net.y_pred, input_features, 'prediction', output_path)
         else:
             print('Please specify model_path variable, where to load the Model.')
 
