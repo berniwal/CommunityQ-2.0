@@ -322,7 +322,12 @@ def main(args):
             create_scatter_plot(net.x_in, net.y_pred, input_features, 'prediction', output_path)
 
             tn, fp, fn, tp = confusion_matrix(net.y_gt, net.y_pred).ravel()
+            acc = (tp + tn) / (tp + tn + fp + fn)
+            recall = tp / (tp + fn)
+            precision = tp / (tp + fp)
+            specificity = tn / (tn + fp)
             print('TN: {} FP: {} FN: {} TP: {}'.format(tn, fp, fn, tp))
+            print('Acc: {} Recall: {} Precision: {} Specificity: {}'.format(acc, recall, precision, specificity))
         else:
             print('Please specify model_path variable, where to load the Model.')
 
