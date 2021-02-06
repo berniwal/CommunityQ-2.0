@@ -20,6 +20,51 @@ from transformers import BertTokenizer, BertModel
 from transformers import DistilBertTokenizer, DistilBertModel, DistilBertForSequenceClassification
 
 
+def generate_attention_plot(attentions, output_path, vmax=1.0):
+    a4_dims = (20, 8.27)
+    plt.rcParams.update(plt.rcParamsDefault)
+    plt.rcParams.update({'font.size': 12})
+    f, axes = plt.subplots(attentions.shape[0], attentions.shape[1], figsize=a4_dims)
+
+    if attentions.shape[0] == 1 and len(axes.shape) == 1:
+        axes = np.expand_dims(axes, 0)
+
+    for y in range(attentions.shape[0]):
+        for x in range(attentions.shape[1]):
+            ax = axes[y, x].imshow(attentions[y, x], vmin=0, vmax=vmax, cmap='viridis')
+
+            if attentions.shape[2] <= 6:
+                for i in range(attentions.shape[2]):
+                    for j in range(attentions.shape[3]):
+                        text = ax.axes.text(j, i, round(attentions[y, x, i, j], 2), color="w",
+                                            fontsize=30 // attentions.shape[2],
+                                            horizontalalignment="center", verticalalignment="center")
+
+            if y == 0:
+                axes[y, x].xaxis.set_label_position('top')
+                axes[y, x].set_xlabel('Head {}'.format(x))
+
+            if x == 0:
+                axes[y, x].set_ylabel('Layer {}'.format(y))
+                axes[y, x].set_yticks([0, attentions.shape[2] // 2, attentions.shape[2] - 1])
+            else:
+                axes[y, x].set_yticks([])
+
+            if y + 1 == attentions.shape[0]:
+                axes[y, x].set_xticks([0, attentions.shape[3] // 2, attentions.shape[3] - 1])
+            else:
+                axes[y, x].set_xticks([])
+
+    f.subplots_adjust(bottom=0.1, top=0.9, left=0.1, right=0.8, wspace=0.02, hspace=0.02)
+    cb_ax = f.add_axes([0.83, 0.1, 0.02, 0.8])
+    cbar = f.colorbar(ax, cax=cb_ax)
+    cbar.set_ticks([round(x * 0.1, 1) for x in range(0, 11)])
+    cbar.set_ticklabels([round(x * 0.1, 1) for x in range(0, 11)])
+
+    f.savefig(output_path)
+    plt.close('all')
+
+
 def create_scatter_plot(x, y, input_features, title, output_path):
     fig, ax = plt.subplots()
     ax.set_title(title)
@@ -184,31 +229,35 @@ class QuestionAnswerer(pl.LightningModule):
         x_num, x_text = x
         if self.nlp_backbone:
             # logits = self.BERT_backbone(x_text).logits
-            text_hidden_state = self.BERT_backbone(x_text).last_hidden_state
+            bert_output = self.BERT_backbone(x_text, output_attentions=True)
+            attentions = bert_output.attentions
+            text_hidden_state = bert_output.last_hidden_state
             text_hidden_state = text_hidden_state[:, 0]
             x_final = torch.cat((x_num, text_hidden_state), 1)
             logits = self.backbone(x_final)
         else:
             logits = self.backbone(x_num)
-        return logits
+        return logits, attentions
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        logits = self(x)
+        logits, _ = self(x)
         loss = self.cross_entropy_loss(logits, y[:, -1])
         self.log('train_loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        logits = self(x)
+        logits, _ = self(x)
         loss = self.cross_entropy_loss(logits, y[:, -1])
         self.log('val_loss', loss)
         return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        logits = self(x)
+        logits, attentions = self(x)
+        import pdb
+        pdb.set_trace()
         predictions = logits.argmax(dim=1).cpu().numpy()
         self.x_in = np.concatenate([self.x_in, x[0][:, 1:3].cpu().numpy()], axis=0)
         self.y_pred.extend(predictions)
