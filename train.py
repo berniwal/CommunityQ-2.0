@@ -305,31 +305,32 @@ def main(args):
                          # overfit_batches=5
                          )
 
+    if args['model_path'] is not None:
+        state_dict = torch.load(args['model_path'])['state_dict']
+        net.load_state_dict(state_dict)
+        net.y_pred = []
+        net.y_gt = []
+        net.x_in = []
+
     if not args['only_test']:
         trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
         trainer.test(test_dataloaders=test_dataloader)
     else:
-        if args['model_path'] is not None:
-            state_dict = torch.load(args['model_path'])['state_dict']
-            net.load_state_dict(state_dict)
-            net.y_pred = []
-            net.y_gt = []
-            trainer.test(net, test_dataloaders=test_dataloader)
-            input_features = ['VisitsLastYear', 'QuestionTextLength']
-            output_path = os.path.join(args['vis_save_path'], 'ground-truth.png')
-            create_scatter_plot(net.x_in, net.y_gt, input_features, 'ground-truth', output_path)
-            output_path = os.path.join(args['vis_save_path'], 'prediction.png')
-            create_scatter_plot(net.x_in, net.y_pred, input_features, 'prediction', output_path)
+        trainer.test(net, test_dataloaders=test_dataloader)
 
-            tn, fp, fn, tp = confusion_matrix(net.y_gt, net.y_pred).ravel()
-            acc = (tp + tn) / (tp + tn + fp + fn)
-            recall = tp / (tp + fn)
-            precision = tp / (tp + fp)
-            specificity = tn / (tn + fp)
-            print('TN: {} FP: {} FN: {} TP: {}'.format(tn, fp, fn, tp))
-            print('Acc: {} Recall: {} Precision: {} Specificity: {}'.format(acc, recall, precision, specificity))
-        else:
-            print('Please specify model_path variable, where to load the Model.')
+    input_features = ['VisitsLastYear', 'QuestionTextLength']
+    output_path = os.path.join(args['vis_save_path'], 'ground-truth.png')
+    create_scatter_plot(net.x_in, net.y_gt, input_features, 'ground-truth', output_path)
+    output_path = os.path.join(args['vis_save_path'], 'prediction.png')
+    create_scatter_plot(net.x_in, net.y_pred, input_features, 'prediction', output_path)
+
+    tn, fp, fn, tp = confusion_matrix(net.y_gt, net.y_pred).ravel()
+    acc = (tp + tn) / (tp + tn + fp + fn)
+    recall = tp / (tp + fn)
+    precision = tp / (tp + fp)
+    specificity = tn / (tn + fp)
+    print('TN: {} FP: {} FN: {} TP: {}'.format(tn, fp, fn, tp))
+    print('Acc: {} Recall: {} Precision: {} Specificity: {}'.format(acc, recall, precision, specificity))
 
 
 if __name__ == "__main__":
