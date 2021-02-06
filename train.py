@@ -21,6 +21,7 @@ from transformers import DistilBertTokenizer, DistilBertModel, DistilBertForSequ
 
 
 def generate_attention_plot(attentions, decoded_tokens, output_path, vmax=1.0):
+    decoded_tokens = decoded_tokens[:decoded_tokens.index('[PAD]') + 1] + ['...', '[PAD]']
     a4_dims = (20, 8.27)
     plt.rcParams.update(plt.rcParamsDefault)
     plt.rcParams.update({'font.size': 12})
@@ -281,10 +282,8 @@ class QuestionAnswerer(pl.LightningModule):
                                                                verbose=1)
         return {'optimizer': optimizer, 'lr_scheduler': scheduler, 'monitor': 'val_loss'}
 
-
     def decode_tokens(self, token_list):
         return [list(self.tokenizer.vocab)[int(x)] for x in token_list]
-
 
 
 def main(args):
