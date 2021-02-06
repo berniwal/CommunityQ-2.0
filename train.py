@@ -20,6 +20,18 @@ from transformers import BertTokenizer, BertModel
 from transformers import DistilBertTokenizer, DistilBertModel, DistilBertForSequenceClassification
 
 
+def create_scatter_plot(x, y, input_features, title, output_path):
+    fig, ax = plt.subplots()
+    ax.set_title(title)
+    ax.set_xlabel(input_features[0])
+    ax.set_ylabel(input_features[1])
+    scatter = ax.scatter(x[:, 0], x[:, 1], c=y)
+    legend = ax.legend(*scatter.legend_elements(), title='IsQuestionForCommunity')
+    ax.add_artist(legend)
+    plt.savefig(output_path)
+    plt.clf()
+
+
 def visualize_histograms(dataset, vis_folder, output_name):
     if not os.path.exists(vis_folder):
         os.mkdir(vis_folder)
@@ -159,10 +171,12 @@ class QuestionAnswerer(pl.LightningModule):
             # self.BERT_backbone = DistilBertForSequenceClassification.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
             self.BERT_backbone = BertModel.from_pretrained('bert-base-german-cased', num_labels=num_classes)
             # self.BERT_backbone = DistilBertModel.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
-            self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes, bias)
+            self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes,
+                                                   bias)
         else:
             self.backbone = SimpleQuestionAnswerer(input_dimension, hidden_dimension, num_layers, num_classes, bias)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.x_in = np.zeros((0, 2))
         self.y_pred = []
         self.y_gt = []
 
@@ -195,11 +209,10 @@ class QuestionAnswerer(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        predictions = logits.argmax(dim=1).numpy()
-        y_pred.extend(predictions)
-        y_gt.extend(y[:, -1])
-        import pdb
-        pdb.set_trace()
+        predictions = logits.argmax(dim=1).cpu().numpy()
+        self.x_in = np.concatenate([self.x_in, x[0][:, 1:3].cpu().numpy()], axis=0)
+        self.y_pred.extend(predictions)
+        self.y_gt.extend(y[:, -1].cpu().numpy())
         loss = self.cross_entropy_loss(logits, y[:, -1])
         self.log('test_loss', loss)
         return loss
@@ -297,13 +310,18 @@ def main(args):
         trainer.test(test_dataloaders=test_dataloader)
     else:
         if args['model_path'] is not None:
-            state_dict = torch.load(config['model_path'])['state_dict']
+            state_dict = torch.load(args['model_path'])['state_dict']
             net.load_state_dict(state_dict)
-            import pdb
-            pdb.set_trace()
-            trainer.test(net, test_dataloader=test_dataloader)
+            net.y_pred = []
+            net.y_gt = []
+            trainer.test(net, test_dataloaders=test_dataloader)
+            output_path = os.path.join(args['vis_save_path'], 'ground-truth.png')
+            create_scatter_plot(net.x_in, net.y_gt, 'ground-truth', output_path)
+            output_path = os.path.join(args['vis_save_path'], 'prediction.png')
+            create_scatter_plot(net.x_in, net.y_pred, 'prediction', output_path)
         else:
             print('Please specify model_path variable, where to load the Model.')
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Input Arguments')
