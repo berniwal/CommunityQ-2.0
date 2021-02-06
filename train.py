@@ -362,20 +362,21 @@ def main(args):
     trainer = pl.Trainer(gpus=1,
                          callbacks=[checkpoint_callback, early_stop_callback],
                          # logger=[wandb_logger],
-                         # overfit_batches=5
+                         # overfit_batches=5,
+                         resume_from_checkpoint=args['model_path']
                          )
 
-    if args['model_path'] is not None:
-        state_dict = torch.load(args['model_path'])['state_dict']
-        net.load_state_dict(state_dict)
-        net.y_pred = []
-        net.y_gt = []
-        net.x_in = np.zeros((0, 2))
-
     if not args['only_test']:
-        trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
+        trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloaider)
         trainer.test(test_dataloaders=test_dataloader)
     else:
+        if args['model_path'] is not None:
+            state_dict = torch.load(args['model_path'])['state_dict']
+            net.load_state_dict(state_dict)
+            net.y_pred = []
+            net.y_gt = []
+            net.x_in = np.zeros((0, 2))
+
         trainer.test(net, test_dataloaders=test_dataloader)
 
     input_features = ['VisitsLastYear', 'QuestionTextLength']
