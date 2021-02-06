@@ -320,6 +320,9 @@ def main(args):
             create_scatter_plot(net.x_in, net.y_gt, input_features, 'ground-truth', output_path)
             output_path = os.path.join(args['vis_save_path'], 'prediction.png')
             create_scatter_plot(net.x_in, net.y_pred, input_features, 'prediction', output_path)
+
+            tn, fp, fn, tp = confusion_matrix(y, y_pred).ravel()
+            print('TN: {} FP: {} FN: {} TP: {}'.format(tn, fp, fn, tp))
         else:
             print('Please specify model_path variable, where to load the Model.')
 
