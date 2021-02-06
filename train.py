@@ -20,11 +20,12 @@ from transformers import BertTokenizer, BertModel
 from transformers import DistilBertTokenizer, DistilBertModel, DistilBertForSequenceClassification
 
 
-def generate_attention_plot(attentions, output_path, vmax=1.0):
+def generate_attention_plot(attentions, decoded_tokens, output_path, vmax=1.0):
     a4_dims = (20, 8.27)
     plt.rcParams.update(plt.rcParamsDefault)
     plt.rcParams.update({'font.size': 12})
     f, axes = plt.subplots(attentions.shape[0], attentions.shape[1], figsize=a4_dims)
+    f.suptitle(decoded_tokens, fontsize=10)
 
     if attentions.shape[0] == 1 and len(axes.shape) == 1:
         axes = np.expand_dims(axes, 0)
@@ -261,9 +262,8 @@ class QuestionAnswerer(pl.LightningModule):
             attention_data = np.zeros((0, 12, 512, 512))
             for attention in attentions:
                 attention_data = np.concatenate([attention_data, attention[0].unsqueeze(dim=0).cpu().numpy()])
-            import pdb
-            pdb.set_trace()
-            generate_attention_plot(attention_data, './visualizations/attention.png', vmax=0.2)
+            decoded_tokens = self.decode_tokens(x[1][0])
+            generate_attention_plot(attention_data, decoded_tokens, './visualizations/attention.png', vmax=0.2)
         predictions = logits.argmax(dim=1).cpu().numpy()
         self.x_in = np.concatenate([self.x_in, x[0][:, 1:3].cpu().numpy()], axis=0)
         self.y_pred.extend(predictions)
