@@ -367,7 +367,7 @@ def main(args):
                          )
 
     if not args['only_test']:
-        trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloaider)
+        trainer.fit(net, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
         trainer.test(test_dataloaders=test_dataloader)
     else:
         if args['model_path'] is not None:
