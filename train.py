@@ -17,7 +17,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 # from pytorch_lightning.loggers import WandbLogger
 
 from transformers import BertTokenizer, BertModel
-from transformers import DistilBertTokenizer, DistilBertModel, DistilBertForSequenceClassification
+from transformers import DistilBertTokenizer, DistilBertModel
 
 
 def generate_attention_plot(attentions, decoded_tokens, output_path, vmax=1.0):
@@ -34,13 +34,6 @@ def generate_attention_plot(attentions, decoded_tokens, output_path, vmax=1.0):
     for y in range(attentions.shape[0]):
         for x in range(attentions.shape[1]):
             ax = axes[y, x].imshow(attentions[y, x], vmin=0, vmax=vmax, cmap='viridis')
-
-            if attentions.shape[2] <= 6:
-                for i in range(attentions.shape[2]):
-                    for j in range(attentions.shape[3]):
-                        text = ax.axes.text(j, i, round(attentions[y, x, i, j], 2), color="w",
-                                            fontsize=30 // attentions.shape[2],
-                                            horizontalalignment="center", verticalalignment="center")
 
             if y == 0:
                 axes[y, x].xaxis.set_label_position('top')
@@ -94,7 +87,6 @@ def visualize_histograms(dataset, vis_folder, output_name):
         feature_name = current_data.name
         current_axis.hist(current_data)
         current_axis.set_title(feature_name, size=8)
-        # current_axis.set_yscale('log')
     plt.savefig(os.path.join(vis_folder, output_name))
 
 
@@ -115,7 +107,6 @@ class QuestionDataset(torch.utils.data.Dataset):
             self.std_x = self.x_num_raw.std()
             visualize_histograms(self.x_num_raw, visualization_folder, output_name='unnormalized.png')
             self.x_num = (self.x_num_raw - self.mean_x) / self.std_x
-            # self.x_num = self.x_num_raw / self.x_num_raw.max()
             visualize_histograms(self.x_num, visualization_folder, output_name='normalized.png')
             self.x_num = self.x_num.to_numpy()
 
@@ -131,25 +122,24 @@ class QuestionDataset(torch.utils.data.Dataset):
 
         self.x_text = self.dataset[input_features_text].to_numpy().squeeze()
 
-        '''output_file = './data/questions.txt'
-        with open(output_file, 'a') as file:
+        output_file = './data/questions.txt'
+        with open(output_file, 'w') as file:
             for idx, test in tqdm(enumerate(self.x_text)):
                 if '\n' in test:
                     test = test.replace('\n', '')
                 file.write(
                     '{},'.format(idx) + test + ',{}'.format(self.y_raw.iloc[idx]['IsQuestionForCommunity']) + '\n'
-                )'''
+                )
 
         # self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-german-cased', use_fast=True)
         self.tokenizer = BertTokenizer.from_pretrained('bert-base-german-cased', use_fast=True)
         self.MAX_LEN = 512
 
-        # test_text = self.x_text[1]
-        # test_tokens = self.tokenizer.encode_plus(test_text, add_special_tokens=True, max_length=self.MAX_LEN, truncation=True)
-        # test_back_text = [list(self.tokenizer.vocab)[int(x)] for x in test_tokens['input_ids']]
-
         self.x = np.concatenate((self.x_num, self.x_cat), axis=1)
         self.y = self.y_raw.to_numpy()
+
+        import pdb
+        pdb.set_trace()
 
     def __len__(self):
         return int(self.x.shape[0])
@@ -217,9 +207,8 @@ class QuestionAnswerer(pl.LightningModule):
         self.std = std
         self.nlp_backbone = nlp_backbone
         if self.nlp_backbone:
-            # self.BERT_backbone = DistilBertForSequenceClassification.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
-            self.BERT_backbone = BertModel.from_pretrained('bert-base-german-cased', num_labels=num_classes)
             # self.BERT_backbone = DistilBertModel.from_pretrained('distilbert-base-german-cased', num_labels=num_classes)
+            self.BERT_backbone = BertModel.from_pretrained('bert-base-german-cased', num_labels=num_classes)
             self.backbone = SimpleQuestionAnswerer(input_dimension + 768, hidden_dimension, num_layers, num_classes,
                                                    bias)
             self.tokenizer = BertTokenizer.from_pretrained('bert-base-german-cased', use_fast=True)
@@ -233,7 +222,6 @@ class QuestionAnswerer(pl.LightningModule):
     def forward(self, x):
         x_num, x_text = x
         if self.nlp_backbone:
-            # logits = self.BERT_backbone(x_text).logits
             bert_output = self.BERT_backbone(x_text, output_attentions=True)
             attentions = bert_output.attentions
             text_hidden_state = bert_output.last_hidden_state
@@ -244,14 +232,14 @@ class QuestionAnswerer(pl.LightningModule):
             logits = self.backbone(x_num)
         return logits, attentions
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch):
         x, y = batch
         logits, _ = self(x)
         loss = self.cross_entropy_loss(logits, y[:, -1])
         self.log('train_loss', loss)
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch):
         x, y = batch
         logits, _ = self(x)
         loss = self.cross_entropy_loss(logits, y[:, -1])
